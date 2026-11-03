@@ -10,7 +10,8 @@ function getProps() {
         token: String(p.getProperty('BOT_TOKEN') || '').trim(),
         allowedId: String(p.getProperty('ALLOWED_CHAT_ID') || '').trim(),
         folderId: String(p.getProperty('FOLDER_ID') || '').trim(),
-        webhookUrl: String(p.getProperty('WEBHOOK_URL') || '').trim()
+        webhookUrl: String(p.getProperty('WEBHOOK_URL') || '').trim(),
+        webhookKey: String(p.getProperty('WEBHOOK_KEY') || '').trim()
     };
 }
 
@@ -23,6 +24,11 @@ function tgUrl() {
 // ==========================================
 function doPost(e) {
     if (!e || !e.postData) return HtmlService.createHtmlOutput("OK");
+    // Apps Script can't read Telegram's secret-token header, so the secret rides in the webhook URL
+    // (?key=), set by forceSetWebhook(). Without it, anyone who learned this script's URL could post
+    // updates claiming to come from the allowed chat. No key set yet: run forceSetWebhook() once.
+    const webhookKey = getProps().webhookKey;
+    if (!webhookKey || (e.parameter || {}).key !== webhookKey) return HtmlService.createHtmlOutput("OK");
     try {
         const data = JSON.parse(e.postData.contents);
         const props = getProps();
@@ -31,7 +37,8 @@ function doPost(e) {
             const chatId = String(data.message.chat.id);
 
             // Chặn người lạ
-            if (props.allowedId && chatId !== props.allowedId) return HtmlService.createHtmlOutput("OK");
+            if (!props.allowedId) Logger.log("ALLOWED_CHAT_ID chưa có trong Script Properties; chat này là " + chatId);
+            if (!props.allowedId || chatId !== props.allowedId) return HtmlService.createHtmlOutput("OK");
 
             const text = data.message.text.trim().toLowerCase();
 
@@ -155,7 +162,14 @@ function forceSetWebhook() {
         Logger.log("Chưa có WEBHOOK_URL trong Script Properties");
         return;
     }
-    const res = UrlFetchApp.fetch('https://api.telegram.org/bot' + props.token + '/setWebhook?url=' + encodeURIComponent(props.webhookUrl) + '&drop_pending_updates=true', {muteHttpExceptions: true});
+    // Created once and reused; doPost drops any request whose ?key= doesn't match.
+    let key = props.webhookKey;
+    if (!key) {
+        key = Utilities.getUuid().replace(/-/g, '');
+        PropertiesService.getScriptProperties().setProperty('WEBHOOK_KEY', key);
+    }
+    const hookUrl = props.webhookUrl + (props.webhookUrl.indexOf('?') >= 0 ? '&' : '?') + 'key=' + key;
+    const res = UrlFetchApp.fetch('https://api.telegram.org/bot' + props.token + '/setWebhook?url=' + encodeURIComponent(hookUrl) + '&drop_pending_updates=true', {muteHttpExceptions: true});
     Logger.log("Kết quả set Webhook: " + res.getContentText());
 }
 
