@@ -54,3 +54,6 @@ To set it up:
 Apps Script can't read Telegram's secret-token header, so the key travels in the webhook's address.
 Without the right key, a post to the script is ignored. Tokens and IDs live only in Script
 Properties, never in the code.
+
+The day count rounds rather than truncates, so a daylight-saving change, when a day lasts 23 or 25
+hours, can't skip a day or repeat one.
