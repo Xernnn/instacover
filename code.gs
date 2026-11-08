@@ -81,7 +81,8 @@ function sendDailyStory() {
     today.setHours(0, 0, 0, 0);
 
     const diffTime = today.getTime() - startDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    // Dùng round thay vì floor: khi đổi giờ DST, một "ngày" có thể dài 23h hoặc 25h
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
     const targetDay = START_DAY_NUMBER + diffDays;
 
     if (targetDay < 1) {
