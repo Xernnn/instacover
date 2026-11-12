@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read-only: CI checks code and needs to change nothing on the repository.
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          # No requirements file to key the cache on: this workflow is what names the packages.
+          cache-dependency-path: .github/workflows/ci.yml
+
+      - name: Install Pillow and NumPy
+        run: pip install pillow numpy
+
+      # Pabasing.otf isn't in the repo (its licence doesn't allow it), so these draw with
+      # Pillow's built-in font, which is what the scripts fall back to without it.
+      - name: Draw a test cover
+        run: python testday.py
+
+      - name: Draw the colour preview
+        run: python preview_colors.py
+
+      - name: Draw every cover
+        run: python allday.py
+
+      # Only parsed, never run: the bot lives in Apps Script, so nothing here talks to Telegram.
+      - name: Syntax-check the bot
+        run: |
+          cp code.gs "$RUNNER_TEMP/code.js"
+          node --check "$RUNNER_TEMP/code.js"
